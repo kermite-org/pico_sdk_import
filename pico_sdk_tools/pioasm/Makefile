@@ -1,6 +1,6 @@
 CXX = g++
 CXX_FLAGS = -Isrc -Isrc/gen -std=gnu++11
-LD_FLAGS = -Wl,-search_paths_first -Wl,-headerpad_max_install_names
+LD_FLAGS =
 
 CPP_SRCS = src/main.cpp \
 src/pio_assembler.cpp \
