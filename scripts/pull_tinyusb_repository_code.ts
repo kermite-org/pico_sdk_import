@@ -9,8 +9,8 @@ function exec(command: string) {
   childProcess.spawnSync(command, { shell: true });
 }
 
-const srcPicoSdkDir = ".tmp/pico-sdk";
-const dstPicoSdkDir = "./pico_sdk";
+const srcSdkDir = ".tmp/tiny_usb";
+const dstSdkDir = "./tinyusb";
 
 function getSubFolderNamesInFolder(folderPath: string) {
   return fs
@@ -25,8 +25,8 @@ function getFileNamesInFolder(folderPath: string) {
 }
 
 function extractSrcSubFoldersToDstFolder(relativeFolderPath: string) {
-  const srcFolderPath = path.join(srcPicoSdkDir, relativeFolderPath);
-  const dstFolderPath = path.join(dstPicoSdkDir, relativeFolderPath);
+  const srcFolderPath = path.join(srcSdkDir, relativeFolderPath);
+  const dstFolderPath = path.join(dstSdkDir, relativeFolderPath);
   fs.mkdirSync(dstFolderPath, { recursive: true });
 
   const subFolderNames = getSubFolderNamesInFolder(srcFolderPath);
@@ -52,8 +52,8 @@ function filterConditionRemoveUnnecessarySources(fileName: string) {
 }
 
 function extractSrcSubFoldersToDstFolderEx(relativeFolderPath: string) {
-  const srcFolderPath = path.join(srcPicoSdkDir, relativeFolderPath);
-  const dstFolderPath = path.join(dstPicoSdkDir, relativeFolderPath);
+  const srcFolderPath = path.join(srcSdkDir, relativeFolderPath);
+  const dstFolderPath = path.join(dstSdkDir, relativeFolderPath);
   fs.mkdirSync(dstFolderPath, { recursive: true });
 
   const moduleFolderNames = getSubFolderNamesInFolder(srcFolderPath);
@@ -98,8 +98,8 @@ function extractSrcSubFoldersToDstFolderEx(relativeFolderPath: string) {
 }
 
 function copyFilesDirectUnder(relativeFolderPath) {
-  const srcFolderPath = path.join(srcPicoSdkDir, relativeFolderPath);
-  const dstFolderPath = path.join(dstPicoSdkDir, relativeFolderPath);
+  const srcFolderPath = path.join(srcSdkDir, relativeFolderPath);
+  const dstFolderPath = path.join(dstSdkDir, relativeFolderPath);
   fs.mkdirSync(dstFolderPath, { recursive: true });
 
   const fileNames = getFileNamesInFolder(srcFolderPath);
@@ -113,13 +113,13 @@ function copyFilesDirectUnder(relativeFolderPath) {
 }
 
 function copyFolderRecursive(relativeFolderPath: string) {
-  const srcFolderPath = path.join(srcPicoSdkDir, relativeFolderPath);
-  const dstFolderPath = path.join(dstPicoSdkDir, relativeFolderPath);
+  const srcFolderPath = path.join(srcSdkDir, relativeFolderPath);
+  const dstFolderPath = path.join(dstSdkDir, relativeFolderPath);
   fs.copySync(srcFolderPath, dstFolderPath);
 }
 
 function removeFilesMatchTo(relativePatterns: string[]) {
-  const patterns = relativePatterns.map((it) => path.join(dstPicoSdkDir, it));
+  const patterns = relativePatterns.map((it) => path.join(dstSdkDir, it));
   patterns.forEach((pattern) => {
     const filePaths = glob.sync(pattern);
     filePaths.forEach((filePath) => fs.unlinkSync(filePath));
@@ -127,28 +127,27 @@ function removeFilesMatchTo(relativePatterns: string[]) {
 }
 
 function copySingleFile(relativeFilePath: string) {
-  const srcFilePath = path.join(srcPicoSdkDir, relativeFilePath);
-  const dstFilePath = path.join(dstPicoSdkDir, relativeFilePath);
+  const srcFilePath = path.join(srcSdkDir, relativeFilePath);
+  const dstFilePath = path.join(dstSdkDir, relativeFilePath);
   fs.copySync(srcFilePath, dstFilePath);
 }
 
 function outputFile(relativeFilePath: string, content: string) {
-  const dstFilePath = path.join(dstPicoSdkDir, relativeFilePath);
+  const dstFilePath = path.join(dstSdkDir, relativeFilePath);
   fs.writeFileSync(dstFilePath, content, { encoding: "utf-8" });
 }
 
 function pullSdkSourceRepo() {
-  puts("pull sdk repo ...");
-  fs.rmdirSync(srcPicoSdkDir, { recursive: true });
-  exec(`git clone https://github.com/raspberrypi/pico-sdk ${srcPicoSdkDir}`);
-  puts("pull sdk repo ... done");
+  puts("pull tinyusb repo ...");
+  fs.rmdirSync(srcSdkDir, { recursive: true });
+  exec(`git clone https://github.com/hathach/tinyusb ${srcSdkDir}`);
+  // exec(`cd ${srcSdkDir} && git submodule update --init`);
+  puts("pull tinyusb repo ... done");
 }
 
 const contentOfNoteText = [
-  "import required code from pico-sdk",
-  "https://github.com/raspberrypi/pico-sdk",
-  "",
-  "folder structure is arranged for easiness",
+  "import required code from tinyusb",
+  "https://github.com/hathach/tinyusb",
 ].join("\n");
 
 function run() {
@@ -157,14 +156,16 @@ function run() {
   pullSdkSourceRepo();
 
   puts("copy files ...");
-  fs.rmdirSync(dstPicoSdkDir, { recursive: true });
+  fs.rmdirSync(dstSdkDir, { recursive: true });
 
-  extractSrcSubFoldersToDstFolderEx("src/common");
-  extractSrcSubFoldersToDstFolderEx("src/rp2_common");
-  extractSrcSubFoldersToDstFolderEx("src/rp2040");
-  removeFilesMatchTo(["**/*CMakeLists.txt", "**/*.svd", "**/*.py"]);
+  copyFilesDirectUnder("src");
+  copyFolderRecursive("src/class/hid");
+  copyFolderRecursive("src/common");
+  copyFolderRecursive("src/device");
+  copyFolderRecursive("src/osal");
+  copyFolderRecursive("src/portable/raspberrypi");
 
-  copySingleFile("LICENSE.TXT");
+  copySingleFile("LICENSE");
 
   puts("copy files ... done");
 

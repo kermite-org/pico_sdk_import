@@ -4,7 +4,8 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "execute": "ts-node pull_pico_sdk_repository_code.ts"
+    "execute": "ts-node pull_pico_sdk_repository_code.ts",
+    "execute2": "ts-node pull_tinyusb_repository_code.ts"
   },
   "dependencies": {
     "@types/fs-extra": "^9.0.10",
