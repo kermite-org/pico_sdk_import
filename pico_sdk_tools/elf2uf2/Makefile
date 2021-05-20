@@ -17,7 +17,7 @@ $(EXE): $(OBJS)
 	@echo linking
 	@"mkdir" -p $(dir $@)
 	@$(CXX) $(LD_FLAGS) $< -o $@
-	@echo "output: $(EXE)"
+	@echo output: $(EXE)
 
 $(OBJ_DIR)/%.cpp.obj: %.cpp
 	@echo compiling $<
