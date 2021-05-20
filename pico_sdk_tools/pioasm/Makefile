@@ -22,14 +22,14 @@ OBJS = $(addprefix $(OBJ_DIR)/, $(CPP_SRCS:.cpp=.cpp.obj))
 build: $(EXE)
 
 $(EXE): $(OBJS)
-	@echo "linking"
-	@mkdir -p $(dir $@)
+	@echo linking
+	@"mkdir" -p $(dir $@)
 	@$(CXX) $(LD_FLAGS) $^ -o $@
-	@echo "output: $(EXE)"
+	@echo output: $(EXE)
 
 $(OBJ_DIR)/%.cpp.obj: %.cpp
-	@echo "compiling $<"
-	@mkdir -p $(dir $@)
+	@echo compiling $<
+	@"mkdir" -p $(dir $@)
 	@$(CXX) $(CXX_FLAGS) -o $@ -c $<
 
 clean:
