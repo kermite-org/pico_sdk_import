@@ -162,7 +162,12 @@ function run() {
   extractSrcSubFoldersToDstFolderEx("src/common");
   extractSrcSubFoldersToDstFolderEx("src/rp2_common");
   extractSrcSubFoldersToDstFolderEx("src/rp2040");
-  removeFilesMatchTo(["**/*CMakeLists.txt", "**/*.svd", "**/*.py"]);
+  removeFilesMatchTo([
+    "**/*CMakeLists.txt",
+    "**/*.svd",
+    "**/*.py",
+    "**/*.cmake",
+  ]);
 
   copySingleFile("LICENSE.TXT");
 
