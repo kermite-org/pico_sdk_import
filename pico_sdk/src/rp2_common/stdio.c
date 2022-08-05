@@ -10,7 +10,9 @@
 
 #include "pico.h"
 #include "pico/mutex.h"
+#if LIB_PICO_PRINTF_PICO
 #include "pico/printf.h"
+#endif
 #include "pico/stdio.h"
 #include "pico/stdio/driver.h"
 #include "pico/time.h"
@@ -26,6 +28,10 @@
 #if LIB_PICO_STDIO_SEMIHOSTING
 #include "pico/stdio_semihosting.h"
 #endif
+
+#define STDIO_HANDLE_STDIN  0
+#define STDIO_HANDLE_STDOUT 1
+#define STDIO_HANDLE_STDERR 2
 
 static stdio_driver_t *drivers;
 static stdio_driver_t *filter;
@@ -53,12 +59,15 @@ void stdout_serialize_end(void) {
 }
 
 #else
-static bool print_serialize_begin(void) {
+static bool stdout_serialize_begin(void) {
     return true;
 }
-static void print_serialize_end(void) {
+static void stdout_serialize_end(void) {
 }
 #endif
+static void stdio_out_chars_no_crlf(stdio_driver_t *driver, const char *s, int len) {
+    driver->out_chars(s, len);
+}
 
 static void stdio_out_chars_crlf(stdio_driver_t *driver, const char *s, int len) {
 #if PICO_STDIO_ENABLE_CRLF_SUPPORT
@@ -89,7 +98,7 @@ static void stdio_out_chars_crlf(stdio_driver_t *driver, const char *s, int len)
 #endif
 }
 
-static bool stdio_put_string(const char *s, int len, bool newline) {
+static bool stdio_put_string(const char *s, int len, bool newline, bool no_cr) {
     bool serialized = stdout_serialize_begin();
     if (!serialized) {
 #if PICO_STDIO_IGNORE_NESTED_STDOUT
@@ -97,13 +106,14 @@ static bool stdio_put_string(const char *s, int len, bool newline) {
 #endif
     }
     if (len == -1) len = (int)strlen(s);
+    void (*out_func)(stdio_driver_t *, const char *, int) = no_cr ? stdio_out_chars_no_crlf : stdio_out_chars_crlf;
     for (stdio_driver_t *driver = drivers; driver; driver = driver->next) {
         if (!driver->out_chars) continue;
         if (filter && filter != driver) continue;
-        stdio_out_chars_crlf(driver, s, len);
+        out_func(driver, s, len);
         if (newline) {
             const char c = '\n';
-            stdio_out_chars_crlf(driver, &c, 1);
+            out_func(driver, &c, 1);
         }
     }
     if (serialized) {
@@ -125,56 +135,70 @@ static int stdio_get_until(char *buf, int len, absolute_time_t until) {
                 }
             }
         }
+        if (time_reached(until)) {
+            return PICO_ERROR_TIMEOUT;
+        }
         // we sleep here in case the in_chars methods acquire mutexes or disable IRQs and
         // potentially starve out what they are waiting on (have seen this with USB)
         busy_wait_us(1);
-    } while (!time_reached(until));
-    return PICO_ERROR_TIMEOUT;
+    } while (true);
 }
 
 int WRAPPER_FUNC(putchar)(int c) {
     char cc = (char)c;
-    stdio_put_string(&cc, 1, false);
+    stdio_put_string(&cc, 1, false, false);
     return c;
 }
 
 int WRAPPER_FUNC(puts)(const char *s) {
     int len = (int)strlen(s);
-    stdio_put_string(s, len, true);
+    stdio_put_string(s, len, true, false);
+    stdio_flush();
+    return len;
+}
+
+int putchar_raw(int c) {
+    char cc = (char)c;
+    stdio_put_string(&cc, 1, false, true);
+    return c;
+}
+
+int puts_raw(const char *s) {
+    int len = (int)strlen(s);
+    stdio_put_string(s, len, true, true);
     stdio_flush();
     return len;
 }
 
 int _read(int handle, char *buffer, int length) {
-    if (handle == 0) {
+    if (handle == STDIO_HANDLE_STDIN) {
         return stdio_get_until(buffer, length, at_the_end_of_time);
     }
     return -1;
 }
 
 int _write(int handle, char *buffer, int length) {
-    if (handle == 1) {
-        stdio_put_string(buffer, length, false);
+    if (handle == STDIO_HANDLE_STDOUT || handle == STDIO_HANDLE_STDERR) {
+        stdio_put_string(buffer, length, false, false);
         return length;
     }
     return -1;
 }
 
 void stdio_set_driver_enabled(stdio_driver_t *driver, bool enable) {
-    stdio_driver_t *prev = drivers;
-    for (stdio_driver_t *d = drivers; d; d = d->next) {
-        if (d == driver) {
+    stdio_driver_t **prev = &drivers;
+    while (*prev) {
+        if (*prev == driver) {
             if (!enable) {
-                prev->next = d->next;
+                *prev = driver->next;
                 driver->next = NULL;
             }
             return;
         }
-        prev = d;
+        prev = &(*prev)->next;
     }
     if (enable) {
-        if (prev) prev->next = driver;
-        else drivers = driver;
+        *prev = driver;
     }
 }
 
@@ -243,7 +267,7 @@ int __printflike(1, 0) WRAPPER_FUNC(printf)(const char* format, ...)
     return ret;
 }
 
-void stdio_init_all() {
+void stdio_init_all(void) {
     // todo add explicit custom, or registered although you can call stdio_enable_driver explicitly anyway
     // These are well known ones
 #if LIB_PICO_STDIO_UART

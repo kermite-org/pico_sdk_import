@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include "pico.h"
 #include "hardware/regs/m0plus.h"
-#include "hardware/platform_defs.h"
 #include "hardware/regs/addressmap.h"
 #include "hardware/regs/sio.h"
 #include "pico/binary_info/defs.h"
-#include "pico/config.h"
 
 #ifdef NDEBUG
 #ifndef COLLAPSE_IRQS
@@ -226,6 +225,9 @@ _reset_handler:
     cmp r0, #0
     bne hold_non_core0_in_bootrom
 
+    // In a NO_FLASH binary, don't perform .data copy, since it's loaded
+    // in-place by the SRAM load. Still need to clear .bss
+#if !PICO_NO_FLASH
     adr r4, data_cpy_table
 
     // assume there is at least one entry
@@ -236,6 +238,7 @@ _reset_handler:
     bl data_cpy
     b 1b
 2:
+#endif
 
     // Zero out the BSS
     ldr r1, =__bss_start__
@@ -267,6 +270,7 @@ _exit:
     bkpt #0
     b 1b
 
+#if !PICO_NO_FLASH
 data_cpy_loop:
     ldm r1!, {r0}
     stm r2!, {r0}
@@ -274,6 +278,10 @@ data_cpy:
     cmp r2, r3
     blo data_cpy_loop
     bx lr
+#endif
+
+// Note the data copy table is still included for NO_FLASH builds, even though
+// we skip the copy, because it is listed in binary info
 
 .align 2
 data_cpy_table:

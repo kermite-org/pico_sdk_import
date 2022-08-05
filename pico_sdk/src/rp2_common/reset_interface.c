@@ -7,6 +7,8 @@
 
 #include "pico/bootrom.h"
 
+#if !defined(LIB_TINYUSB_HOST) && !defined(LIB_TINYUSB_DEVICE)
+
 #if PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE && !(PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_RESET_TO_BOOTSEL || PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_RESET_TO_FLASH_BOOT)
 #warning PICO_STDIO_USB_ENABLE_RESET_VIA_VENDOR_INTERFACE has been selected but neither PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_RESET_TO_BOOTSEL nor PICO_STDIO_USB_RESET_INTERFACE_SUPPORT_RESET_TO_FLASH_BOOT have been selected.
 #endif
@@ -38,7 +40,7 @@ static uint16_t resetd_open(uint8_t __unused rhport, tusb_desc_interface_t const
 }
 
 // Support for parameterized reset via vendor interface control request
-static bool resetd_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request) {
+static bool resetd_control_xfer_cb(uint8_t __unused rhport, uint8_t stage, tusb_control_request_t const * request) {
     // nothing to do with DATA & ACK stage
     if (stage != CONTROL_STAGE_SETUP) return true;
 
@@ -110,3 +112,4 @@ void tud_cdc_line_coding_cb(__unused uint8_t itf, cdc_line_coding_t const* p_lin
 }
 #endif
 
+#endif
